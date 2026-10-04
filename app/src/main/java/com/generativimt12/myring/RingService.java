@@ -3,6 +3,7 @@ package com.generativimt12.myring;
 import android.app.*;
 import android.content.*;
 import android.media.*;
+import android.net.Uri;
 import android.os.*;
 import java.io.File;
 
@@ -11,25 +12,30 @@ public class RingService extends Service {
     public static final String STOP = "STOP";
     public static final String TEST = "TEST";
 
-    private MediaPlayer player;
+    private Ringtone ringtone;
     private AudioManager audioManager;
-    private AudioFocusRequest audioFocusRequest;
 
     public static void startRinging(Context c) {
-        start(c, new Intent(c, RingService.class).setAction(START));
+        start(c, START);
     }
 
     public static void stopRinging(Context c) {
-        start(c, new Intent(c, RingService.class).setAction(STOP));
+        start(c, STOP);
     }
 
     public static void startTest(Context c) {
-        start(c, new Intent(c, RingService.class).setAction(TEST));
+        start(c, TEST);
     }
 
-    private static void start(Context c, Intent i) {
-        if (Build.VERSION.SDK_INT >= 26) c.startForegroundService(i);
-        else c.startService(i);
+    private static void start(Context c, String action) {
+        Intent i = new Intent(c, RingService.class);
+        i.setAction(action);
+        try {
+            if (Build.VERSION.SDK_INT >= 26) c.startForegroundService(i);
+            else c.startService(i);
+        } catch (Exception e) {
+            // The caller remains alive; no crash is allowed here.
+        }
     }
 
     @Override
@@ -37,126 +43,89 @@ public class RingService extends Service {
         super.onCreate();
         audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
         createChannel();
-        startForeground(7, notification());
+        try {
+            startForeground(7, notification());
+        } catch (Exception ignored) {}
     }
 
     @Override
-    public int onStartCommand(Intent i, int flags, int id) {
-        if (i != null) {
-            String a = i.getAction();
-            if (START.equals(a) || TEST.equals(a)) play();
-            else if (STOP.equals(a)) stopAndExit();
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        String action = intent == null ? null : intent.getAction();
+
+        if (START.equals(action) || TEST.equals(action)) {
+            playRingtone();
+        } else if (STOP.equals(action)) {
+            stopRingtone();
+            stopSelf();
         }
         return START_NOT_STICKY;
     }
 
-    private void play() {
-        stopPlayer();
+    private void playRingtone() {
+        stopRingtone();
 
         String path = getSharedPreferences("myring", MODE_PRIVATE)
                 .getString("ring_file", null);
 
-        if (path == null || !new File(path).isFile()) {
+        if (path == null) {
+            stopSelf();
+            return;
+        }
+
+        File file = new File(path);
+        if (!file.isFile() || file.length() == 0) {
             stopSelf();
             return;
         }
 
         try {
-            requestRingAudioFocus();
+            Uri uri = Uri.fromFile(file);
+            ringtone = RingtoneManager.getRingtone(this, uri);
 
-            player = new MediaPlayer();
+            if (ringtone == null) {
+                stopSelf();
+                return;
+            }
 
-            // Crucial change: route playback to the PHONE RING stream, not MEDIA.
-            // On many phones the MEDIA stream is muted/suppressed during an incoming call.
             if (Build.VERSION.SDK_INT >= 21) {
-                player.setAudioAttributes(new AudioAttributes.Builder()
+                ringtone.setAudioAttributes(new AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
                         .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                         .build());
-            } else {
-                player.setAudioStreamType(AudioManager.STREAM_RING);
             }
 
-            player.setVolume(1.0f, 1.0f);
-            try { player.setWakeMode(this, PowerManager.PARTIAL_WAKE_LOCK); } catch (Exception ignored) {}
-            player.setDataSource(path);
-            player.setLooping(true);
+            if (Build.VERSION.SDK_INT >= 21) {
+                try { ringtone.setLooping(true); } catch (Exception ignored) {}
+            }
 
-            player.setOnPreparedListener(mp -> {
-                mp.setVolume(1.0f, 1.0f);
-                mp.start();
-            });
+            // Explicitly use the ring stream on older devices.
+            if (Build.VERSION.SDK_INT < 21) {
+                try { ringtone.setStreamType(AudioManager.STREAM_RING); } catch (Exception ignored) {}
+            }
 
-            player.setOnErrorListener((mp, what, extra) -> {
-                stopAndExit();
-                return true;
-            });
+            ringtone.play();
 
-            player.prepare();
         } catch (Exception e) {
-            stopAndExit();
+            stopRingtone();
+            stopSelf();
         }
     }
 
-    private void requestRingAudioFocus() {
-        if (audioManager == null) return;
-
-        try {
-            if (Build.VERSION.SDK_INT >= 26) {
-                AudioAttributes attrs = new AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                        .build();
-
-                audioFocusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
-                        .setAudioAttributes(attrs)
-                        .setAcceptsDelayedFocusGain(false)
-                        .build();
-
-                audioManager.requestAudioFocus(audioFocusRequest);
-            } else {
-                audioManager.requestAudioFocus(
-                        null,
-                        AudioManager.STREAM_RING,
-                        AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
-            }
-        } catch (Exception ignored) {
+    private void stopRingtone() {
+        if (ringtone != null) {
+            try {
+                if (ringtone.isPlaying()) ringtone.stop();
+            } catch (Exception ignored) {}
+            ringtone = null;
         }
-    }
-
-    private void abandonRingAudioFocus() {
-        if (audioManager == null) return;
-
-        try {
-            if (Build.VERSION.SDK_INT >= 26 && audioFocusRequest != null) {
-                audioManager.abandonAudioFocusRequest(audioFocusRequest);
-                audioFocusRequest = null;
-            } else if (Build.VERSION.SDK_INT < 26) {
-                audioManager.abandonAudioFocus(null);
-            }
-        } catch (Exception ignored) {
-        }
-    }
-
-    private void stopPlayer() {
-        if (player != null) {
-            try { player.stop(); } catch (Exception ignored) {}
-            try { player.reset(); } catch (Exception ignored) {}
-            try { player.release(); } catch (Exception ignored) {}
-            player = null;
-        }
-        abandonRingAudioFocus();
-    }
-
-    private void stopAndExit() {
-        stopPlayer();
-        stopSelf();
     }
 
     private void createChannel() {
         if (Build.VERSION.SDK_INT >= 26) {
             NotificationChannel ch = new NotificationChannel(
-                    "ring", "Myring", NotificationManager.IMPORTANCE_LOW);
+                    "ring",
+                    "Myring",
+                    NotificationManager.IMPORTANCE_LOW);
             ch.setSound(null, null);
             NotificationManager nm =
                     (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
@@ -178,12 +147,12 @@ public class RingService extends Service {
 
     @Override
     public void onDestroy() {
-        stopPlayer();
+        stopRingtone();
         super.onDestroy();
     }
 
     @Override
-    public IBinder onBind(Intent i) {
+    public IBinder onBind(Intent intent) {
         return null;
     }
 }
