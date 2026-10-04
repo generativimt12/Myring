@@ -131,8 +131,7 @@ public class RingService extends Service {
         h.post(r);
     }
 
-    private static MediaPlayer getCurrentServicePlayer(Context c){return null;}
-
+    
     private static void stopPlayer(MediaPlayer p){
         try{
             int ms=0;
