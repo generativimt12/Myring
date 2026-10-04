@@ -1,17 +1,166 @@
 package com.generativimt12.myring;
-import android.app.*;import android.content.*;import android.media.*;import android.net.Uri;import android.os.*;import java.io.File;
+
+import android.app.*;
+import android.content.*;
+import android.media.*;
+import android.net.Uri;
+import android.os.*;
+import java.io.File;
+
 public class RingService extends Service {
- public static final String START="START",STOP="STOP",TEST="TEST",TEST_STOP="TEST_STOP";
- private static Ringtone directRingtone; private Ringtone ringtone;
- public static void playIncomingDirect(Context c){playIncomingDirect(c,null);} public static void playIncomingDirect(Context c,String preferredPath){stopIncomingDirect();try{String p=preferredPath!=null?preferredPath:c.getSharedPreferences("myring",MODE_PRIVATE).getString("ring_file",null);if(p==null)return;File f=new File(p);if(!f.isFile()||f.length()==0)return;Ringtone r=RingtoneManager.getRingtone(c.getApplicationContext(),Uri.fromFile(f));if(r==null)return;if(Build.VERSION.SDK_INT>=21){r.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());try{r.setLooping(true);}catch(Exception ignored){}}else{try{r.setStreamType(AudioManager.STREAM_RING);}catch(Exception ignored){}}directRingtone=r;r.play();}catch(Exception ignored){directRingtone=null;}}
- public static void stopIncomingDirect(){if(directRingtone!=null){try{directRingtone.stop();}catch(Exception ignored){}directRingtone=null;}}
- public static void startRinging(Context c){start(c,START);}public static void stopRinging(Context c){start(c,STOP);}public static void startTest(Context c){start(c,TEST);}public static void stopTest(Context c){start(c,TEST_STOP);}public static void ensurePersistent(Context c){start(c,null);}public static void stopPersistent(Context c){try{c.stopService(new Intent(c,RingService.class));}catch(Exception ignored){}}
- private static void start(Context c,String action){Intent i=new Intent(c,RingService.class);i.setAction(action);try{if(Build.VERSION.SDK_INT>=26)c.startForegroundService(i);else c.startService(i);}catch(Exception ignored){}}
- @Override public void onCreate(){super.onCreate();createChannel();try{startForeground(7,notification());}catch(Exception ignored){}}
- @Override public int onStartCommand(Intent i,int f,int id){String a=i==null?null:i.getAction();if(START.equals(a)||TEST.equals(a))playRingtone();else if(STOP.equals(a)||TEST_STOP.equals(a)){stopRingtone();}return START_STICKY;}
- private void playRingtone(){stopRingtone();String p=getSharedPreferences("myring",MODE_PRIVATE).getString("ring_file",null);if(p==null)return;File f=new File(p);if(!f.isFile()||f.length()==0)return;try{ringtone=RingtoneManager.getRingtone(this,Uri.fromFile(f));if(ringtone==null)return;if(Build.VERSION.SDK_INT>=21)ringtone.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());if(Build.VERSION.SDK_INT>=21){try{ringtone.setLooping(true);}catch(Exception ignored){}}else{try{ringtone.setStreamType(AudioManager.STREAM_RING);}catch(Exception ignored){}}ringtone.play();}catch(Exception e){stopRingtone();}}
- private void stopRingtone(){if(ringtone!=null){try{ringtone.stop();}catch(Exception ignored){}ringtone=null;}}
- private void createChannel(){if(Build.VERSION.SDK_INT>=26){NotificationChannel ch=new NotificationChannel("ring","Myring",NotificationManager.IMPORTANCE_LOW);ch.setSound(null,null);NotificationManager n=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);if(n!=null)n.createNotificationChannel(ch);}}
- private Notification notification(){Notification.Builder b=Build.VERSION.SDK_INT>=26?new Notification.Builder(this,"ring"):new Notification.Builder(this);return b.setSmallIcon(android.R.drawable.ic_lock_silent_mode_off).setContentTitle("Myring").setContentText("מטפל בצלצול השיחה הנכנסת").setOngoing(true).build();}
- @Override public void onDestroy(){stopRingtone();super.onDestroy();}@Override public IBinder onBind(Intent i){return null;}
+    public static final String START="START",STOP="STOP",TEST="TEST",TEST_STOP="TEST_STOP";
+    private static MediaPlayer directPlayer;
+    private MediaPlayer player;
+
+    public static void playIncomingDirect(Context c){ playIncomingDirect(c,null); }
+
+    public static void playIncomingDirect(Context c,String preferredPath){
+        stopIncomingDirect();
+        MediaPlayer p=createPlayer(c, preferredPath);
+        if(p==null)return;
+        directPlayer=p;
+        try{ p.start(); startFadeIn(p,c); }catch(Exception e){ try{p.release();}catch(Exception ignored){} directPlayer=null; }
+    }
+
+    public static void stopIncomingDirect(){
+        MediaPlayer p=directPlayer;
+        directPlayer=null;
+        if(p!=null) stopPlayer(p);
+    }
+
+    public static void startRinging(Context c){start(c,START);}
+    public static void stopRinging(Context c){start(c,STOP);}
+    public static void startTest(Context c){start(c,TEST);}
+    public static void stopTest(Context c){start(c,TEST_STOP);}
+    public static void ensurePersistent(Context c){start(c,null);}
+    public static void stopPersistent(Context c){try{c.stopService(new Intent(c,RingService.class));}catch(Exception ignored){}}
+
+    private static void start(Context c,String action){
+        Intent i=new Intent(c,RingService.class);
+        i.setAction(action);
+        try{if(Build.VERSION.SDK_INT>=26)c.startForegroundService(i);else c.startService(i);}catch(Exception ignored){}
+    }
+
+    @Override public void onCreate(){super.onCreate();createChannel();try{startForeground(7,notification());}catch(Exception ignored){}}
+
+    @Override public int onStartCommand(Intent i,int f,int id){
+        String a=i==null?null:i.getAction();
+        if(START.equals(a)||TEST.equals(a))playRingtone();
+        else if(STOP.equals(a)||TEST_STOP.equals(a))stopRingtone();
+        return START_STICKY;
+    }
+
+    private void playRingtone(){
+        stopRingtone();
+        String p=getSharedPreferences("myring",MODE_PRIVATE).getString("ring_file",null);
+        player=createPlayer(this,p);
+        if(player==null)return;
+        try{player.start();startFadeIn(player,this);}catch(Exception e){stopRingtone();}
+    }
+
+    private static MediaPlayer createPlayer(Context c,String path){
+        try{
+            if(path==null)path=c.getSharedPreferences("myring",MODE_PRIVATE).getString("ring_file",null);
+            if(path==null)return null;
+            File f=new File(path);
+            if(!f.isFile()||f.length()==0)return null;
+
+            MediaPlayer p=new MediaPlayer();
+            p.setDataSource(f.getAbsolutePath());
+            AudioAttributes attrs=new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build();
+            if(Build.VERSION.SDK_INT>=21)p.setAudioAttributes(attrs);
+            else p.setAudioStreamType(AudioManager.STREAM_RING);
+            p.setLooping(true);
+            p.setOnCompletionListener(mp->{});
+            p.prepare();
+
+            android.content.SharedPreferences sp=c.getSharedPreferences("myring",MODE_PRIVATE);
+            float volume=Math.max(0f,Math.min(1f,sp.getInt("audio_volume",100)/100f));
+            p.setVolume(0f,0f);
+            if(Build.VERSION.SDK_INT>=23){
+                float pitch=Math.max(0.5f,Math.min(2.0f,sp.getInt("audio_pitch",100)/100f));
+                try{
+                    PlaybackParams pp=p.getPlaybackParams();
+                    pp.setSpeed(1.0f);
+                    pp.setPitch(pitch);
+                    p.setPlaybackParams(pp);
+                }catch(Exception ignored){}
+            }
+            p.setVolume(volume,volume);
+            routePlayer(c,p,sp.getInt("audio_route",0));
+            return p;
+        }catch(Exception e){return null;}
+    }
+
+    private static void routePlayer(Context c,MediaPlayer p,int route){
+        if(Build.VERSION.SDK_INT<28||route==0)return;
+        try{
+            AudioManager am=(AudioManager)c.getSystemService(Context.AUDIO_SERVICE);
+            if(am==null)return;
+            AudioDeviceInfo[] devices=am.getDevices(AudioManager.GET_DEVICES_OUTPUTS);
+            AudioDeviceInfo target=null;
+            for(AudioDeviceInfo d:devices){
+                int t=d.getType();
+                if(route==1&&t==AudioDeviceInfo.TYPE_BUILTIN_SPEAKER){target=d;break;}
+                if(route==2&&(t==AudioDeviceInfo.TYPE_BLUETOOTH_A2DP||t==AudioDeviceInfo.TYPE_BLUETOOTH_SCO||t==AudioDeviceInfo.TYPE_BLE_HEADSET)){target=d;break;}
+            }
+            if(target!=null)p.setPreferredDevice(target);
+        }catch(Exception ignored){}
+    }
+
+    private static void startFadeIn(MediaPlayer p,Context c){
+        int ms=c.getSharedPreferences("myring",MODE_PRIVATE).getInt("fade_in_ms",0);
+        if(ms<=0){
+            float v=c.getSharedPreferences("myring",MODE_PRIVATE).getInt("audio_volume",100)/100f;
+            try{p.setVolume(v,v);}catch(Exception ignored){}
+            return;
+        }
+        final float target=c.getSharedPreferences("myring",MODE_PRIVATE).getInt("audio_volume",100)/100f;
+        final long start=SystemClock.uptimeMillis();
+        final Handler h=new Handler(Looper.getMainLooper());
+        Runnable r=new Runnable(){public void run(){
+            if(p!=directPlayer&&p!=getCurrentServicePlayer(c))return;
+            float x=Math.min(1f,(SystemClock.uptimeMillis()-start)/(float)ms);
+            float v=target*x;
+            try{p.setVolume(v,v);}catch(Exception ignored){}
+            if(x<1f)h.postDelayed(this,30);
+        }};
+        h.post(r);
+    }
+
+    private static MediaPlayer getCurrentServicePlayer(Context c){return null;}
+
+    private static void stopPlayer(MediaPlayer p){
+        try{
+            int ms=0;
+            // Immediate stop is the safe default; the user can enable a fade-in/out profile later.
+            if(p.isPlaying())p.stop();
+        }catch(Exception ignored){}
+        try{p.release();}catch(Exception ignored){}
+    }
+
+    private void stopRingtone(){MediaPlayer p=player;player=null;if(p!=null)stopPlayer(p);}
+
+    private void createChannel(){
+        if(Build.VERSION.SDK_INT>=26){
+            NotificationChannel ch=new NotificationChannel("ring","Myring",NotificationManager.IMPORTANCE_LOW);
+            ch.setSound(null,null);
+            NotificationManager n=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
+            if(n!=null)n.createNotificationChannel(ch);
+        }
+    }
+
+    private Notification notification(){
+        Notification.Builder b=Build.VERSION.SDK_INT>=26?new Notification.Builder(this,"ring"):new Notification.Builder(this);
+        return b.setSmallIcon(android.R.drawable.ic_lock_silent_mode_off)
+                .setContentTitle("Myring")
+                .setContentText("מטפל בצלצול השיחה הנכנסת")
+                .setOngoing(true).build();
+    }
+
+    @Override public void onDestroy(){stopRingtone();super.onDestroy();}
+    @Override public IBinder onBind(Intent i){return null;}
 }
