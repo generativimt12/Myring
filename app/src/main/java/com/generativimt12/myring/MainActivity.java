@@ -7,6 +7,8 @@ import android.content.*;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.media.RingtoneManager;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.ContactsContract;
@@ -125,6 +127,35 @@ public class MainActivity extends Activity {
     private void toggleTest(){
         if(testPlaying){RingService.stopTest(this);testPlaying=false;if(testButton!=null)testButton.setText("בדיקת הצלצול שנבחר");}
         else{RingService.startTest(this);testPlaying=true;if(testButton!=null)testButton.setText("עצור את בדיקת הצלצול");}
+    }
+
+    private TextView settingLabel(String s){TextView t=new TextView(this);t.setText(s);t.setPadding(0,10,0,2);return t;}
+
+    private void showAudioSettings(){
+        LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(20,5,20,0);
+        SeekBar vol=new SeekBar(this);vol.setMax(100);vol.setProgress(prefs.getInt("audio_volume",100));
+        TextView volL=settingLabel("עוצמת הצלצול: "+vol.getProgress()+"%");
+        SeekBar pitch=new SeekBar(this);pitch.setMax(150);pitch.setMin(50);pitch.setProgress(prefs.getInt("audio_pitch",100));
+        TextView pitchL=settingLabel("גובה הצליל: "+String.format(java.util.Locale.US,"%.2fx",pitch.getProgress()/100f));
+        SeekBar fade=new SeekBar(this);fade.setMax(3000);fade.setProgress(prefs.getInt("fade_in_ms",0));
+        TextView fadeL=settingLabel("כניסה הדרגתית (Fade-in): "+fade.getProgress()+" ms");
+        box.addView(volL);box.addView(vol);box.addView(pitchL);box.addView(pitch);box.addView(fadeL);box.addView(fade);
+        vol.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar s,int p,boolean f){volL.setText("עוצמת הצלצול: "+p+"%");}public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){}});
+        pitch.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar s,int p,boolean f){pitchL.setText("גובה הצליל: "+String.format(java.util.Locale.US,"%.2fx",p/100f));}public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){}});
+        fade.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar s,int p,boolean f){fadeL.setText("כניסה הדרגתית (Fade-in): "+p+" ms");}public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){}});
+        new AlertDialog.Builder(this).setTitle("שליטה מתקדמת באודיו").setView(box)
+            .setPositiveButton("שמור",(d,w)->prefs.edit().putInt("audio_volume",vol.getProgress()).putInt("audio_pitch",pitch.getProgress()).putInt("fade_in_ms",fade.getProgress()).apply())
+            .setNegativeButton("ביטול",null).show();
+    }
+
+    private void showRouteSettings(){
+        String[] choices={"אוטומטי — Android יבחר","רק הרמקול של הטלפון","רק Bluetooth כשמחובר"};
+        int checked=prefs.getInt("audio_route",0);
+        new AlertDialog.Builder(this).setTitle("יציאת הצלצול").setSingleChoiceItems(choices,checked,(d,w)->{
+            prefs.edit().putInt("audio_route",w).apply();
+            d.dismiss();
+            Toast.makeText(this,choices[w],Toast.LENGTH_SHORT).show();
+        }).setNegativeButton("סגור",null).show();
     }
 
     private void pickAudio(int request){
