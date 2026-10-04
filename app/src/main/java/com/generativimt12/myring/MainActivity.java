@@ -1,5 +1,5 @@
 package com.generativimt12.myring;
-import android.Manifest; import android.app.Activity; import android.content.*; import android.content.pm.PackageManager; import android.database.Cursor; import android.media.RingtoneManager; import android.net.Uri; import android.os.Bundle; import android.provider.ContactsContract; import android.provider.Settings; import android.view.Gravity; import android.widget.*; import java.io.*;
+import android.Manifest; import android.app.Activity; import android.app.AlertDialog; import android.content.*; import android.content.pm.PackageManager; import android.database.Cursor; import android.media.RingtoneManager; import android.net.Uri; import android.os.Bundle; import android.provider.ContactsContract; import android.provider.Settings; import android.view.Gravity; import android.widget.*; import java.io.*;
 
 public class MainActivity extends Activity {
  private static final int PICK_AUDIO=42, REQ_STORAGE=43, REQ_PHONE=44, PICK_CONTACT=45, PICK_PERSONAL_AUDIO=46, REQ_CONTACTS=47;
