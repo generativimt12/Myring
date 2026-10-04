@@ -78,7 +78,7 @@ public class RingService extends Service {
             }
 
             player.setVolume(1.0f, 1.0f);
-            player.setWakeMode(this, PowerManager.PARTIAL_WAKE_LOCK);
+            try { player.setWakeMode(this, PowerManager.PARTIAL_WAKE_LOCK); } catch (Exception ignored) {}
             player.setDataSource(path);
             player.setLooping(true);
 
