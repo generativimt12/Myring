@@ -1,5 +1,5 @@
 package com.generativimt12.myring;
-import android.Manifest; import android.app.Activity; import android.content.*; import android.content.pm.PackageManager; import android.media.RingtoneManager; import android.net.Uri; import android.os.Bundle; import android.provider.Settings; import android.view.Gravity; import android.widget.*;
+import android.Manifest; import android.app.Activity; import android.content.*; import android.content.pm.PackageManager; import android.media.RingtoneManager; import android.net.Uri; import android.os.Bundle; import android.provider.Settings; import android.view.Gravity; import android.widget.*; import java.io.*;
 public class MainActivity extends Activity {
  private static final int PICK_AUDIO=42, REQ_STORAGE=43; private SharedPreferences prefs; private TextView status;
  @Override public void onCreate(Bundle b){super.onCreate(b);prefs=getSharedPreferences("myring",MODE_PRIVATE);buildUi();}
