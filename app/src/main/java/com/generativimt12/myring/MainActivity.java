@@ -1,0 +1,22 @@
+package com.generativimt12.myring;
+import android.Manifest; import android.app.Activity; import android.content.*; import android.content.pm.PackageManager; import android.media.RingtoneManager; import android.net.Uri; import android.os.Bundle; import android.provider.Settings; import android.view.Gravity; import android.widget.*;
+public class MainActivity extends Activity {
+ private static final int PICK_AUDIO=42, REQ_STORAGE=43; private SharedPreferences prefs; private TextView status;
+ @Override public void onCreate(Bundle b){super.onCreate(b);prefs=getSharedPreferences("myring",MODE_PRIVATE);buildUi();}
+ private void buildUi(){LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(32,40,32,32);root.setGravity(Gravity.CENTER_HORIZONTAL);
+ TextView t=new TextView(this);t.setText("Myring");t.setTextSize(30);t.setGravity(Gravity.CENTER);root.addView(t);
+ TextView d=new TextView(this);d.setText("צלצול שיחה נכנסת בלבד\nללא חייגן וללא Accessibility");d.setTextSize(18);d.setGravity(Gravity.CENTER);root.addView(d);
+ status=new TextView(this);status.setPadding(0,30,0,30);root.addView(status);
+ Button c=new Button(this);c.setText("בחר צלצול");c.setOnClickListener(v->pickAudio());root.addView(c);
+ Button a=new Button(this);a.setText("הפעל תיקון צלצול");a.setOnClickListener(v->armFix());root.addView(a);
+ Button r=new Button(this);r.setText("שחזר את הצלצול המקורי");r.setOnClickListener(v->restoreOriginal());root.addView(r);
+ Button x=new Button(this);x.setText("בדיקת הצלצול שנבחר");x.setOnClickListener(v->RingService.startTest(this));root.addView(x);setContentView(root);refreshStatus();}
+ private void pickAudio(){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.setType("audio/*");i.addCategory(Intent.CATEGORY_OPENABLE);i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);startActivityForResult(i,PICK_AUDIO);}
+ @Override protected void onActivityResult(int r,int c,Intent d){super.onActivityResult(r,c,d);if(r==PICK_AUDIO&&c==RESULT_OK&&d!=null&&d.getData()!=null){Uri u=d.getData();try{getContentResolver().takePersistableUriPermission(u,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(Exception ignored){}prefs.edit().putString("ring_uri",u.toString()).apply();refreshStatus();Toast.makeText(this,"הצלצול נשמר",Toast.LENGTH_SHORT).show();}}
+ private void armFix(){if(android.os.Build.VERSION.SDK_INT>=23&&!Settings.System.canWrite(this)){try{startActivity(new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS,Uri.parse("package:"+getPackageName())));}catch(Exception e){startActivity(new Intent(Settings.ACTION_SETTINGS));}Toast.makeText(this,"אשר לאפליקציה שינוי הגדרות מערכת, ואז לחץ שוב",Toast.LENGTH_LONG).show();return;}
+ if(android.os.Build.VERSION.SDK_INT<=28&&checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)!=PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},REQ_STORAGE);return;}
+ try{Uri silent=SilentRingtone.ensure(this);Uri old=RingtoneManager.getActualDefaultRingtoneUri(this,RingtoneManager.TYPE_RINGTONE);if(old!=null&&!silent.equals(old)&&!prefs.contains("original_uri"))prefs.edit().putString("original_uri",old.toString()).apply();RingtoneManager.setActualDefaultRingtoneUri(this,RingtoneManager.TYPE_RINGTONE,silent);prefs.edit().putBoolean("armed",true).apply();refreshStatus();Toast.makeText(this,"התיקון הופעל",Toast.LENGTH_SHORT).show();}catch(Exception e){Toast.makeText(this,"הפעלת התיקון נכשלה: "+e.getMessage(),Toast.LENGTH_LONG).show();}}
+ private void restoreOriginal(){String s=prefs.getString("original_uri",null);if(s==null){Toast.makeText(this,"לא נשמר צלצול מקורי",Toast.LENGTH_SHORT).show();return;}try{RingtoneManager.setActualDefaultRingtoneUri(this,RingtoneManager.TYPE_RINGTONE,Uri.parse(s));prefs.edit().putBoolean("armed",false).apply();refreshStatus();Toast.makeText(this,"הצלצול המקורי שוחזר",Toast.LENGTH_SHORT).show();}catch(Exception e){Toast.makeText(this,"שחזור נכשל: "+e.getMessage(),Toast.LENGTH_LONG).show();}}
+ private void refreshStatus(){status.setText((prefs.getBoolean("armed",false)?"✓ תיקון פעיל":"○ התיקון אינו פעיל")+"\n"+(prefs.getString("ring_uri",null)==null?"לא נבחר צלצול":"צלצול מותאם אישית נבחר"));}
+ @Override public void onRequestPermissionsResult(int r,String[] p,int[] g){super.onRequestPermissionsResult(r,p,g);if(r==REQ_STORAGE&&g.length>0&&g[0]==PackageManager.PERMISSION_GRANTED)armFix();}
+}
