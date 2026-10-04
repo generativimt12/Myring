@@ -122,7 +122,6 @@ public class RingService extends Service {
         final long start=SystemClock.uptimeMillis();
         final Handler h=new Handler(Looper.getMainLooper());
         Runnable r=new Runnable(){public void run(){
-            if(p!=directPlayer&&p!=getCurrentServicePlayer(c))return;
             float x=Math.min(1f,(SystemClock.uptimeMillis()-start)/(float)ms);
             float v=target*x;
             try{p.setVolume(v,v);}catch(Exception ignored){}
