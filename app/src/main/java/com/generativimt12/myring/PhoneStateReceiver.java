@@ -29,6 +29,7 @@ public class PhoneStateReceiver extends BroadcastReceiver {
             activeCall=true;
             lastNumber=null; lastFile=null; RingService.stopIncomingDirect();
         } else if(TelephonyManager.EXTRA_STATE_IDLE.equals(s)){
+            activeCall=false;
             lastNumber=null; lastFile=null; RingService.stopIncomingDirect();
         }
     }
