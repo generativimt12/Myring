@@ -15,6 +15,8 @@ import android.provider.ContactsContract;
 import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
+import android.view.KeyEvent;
+import android.os.SystemClock;
 import android.widget.*;
 import java.io.*;
 
@@ -25,6 +27,7 @@ public class MainActivity extends Activity {
     private Button testButton;
     private boolean testPlaying=false;
     private String pendingContactKey;
+    private long poundDownAt=0;
 
     @Override public void onCreate(Bundle b){
         super.onCreate(b);
@@ -122,6 +125,27 @@ public class MainActivity extends Activity {
 
     private void addButton(LinearLayout root,String text,View.OnClickListener l){
         Button b=new Button(this); b.setText(text); b.setOnClickListener(l); root.addView(b);
+    }
+
+    @Override public boolean onKeyDown(int keyCode, KeyEvent event){
+        if(keyCode==KeyEvent.KEYCODE_POUND){
+            if(event.getRepeatCount()==0)poundDownAt=SystemClock.uptimeMillis();
+            return true;
+        }
+        return super.onKeyDown(keyCode,event);
+    }
+
+    @Override public boolean onKeyUp(int keyCode, KeyEvent event){
+        if(keyCode==KeyEvent.KEYCODE_POUND){
+            long held=SystemClock.uptimeMillis()-poundDownAt;
+            poundDownAt=0;
+            if(held>=450 && RingService.isIncomingRinging()){
+                RingService.muteIncoming();
+                Toast.makeText(this,"הצלצול הושתק",Toast.LENGTH_SHORT).show();
+            }
+            return true;
+        }
+        return super.onKeyUp(keyCode,event);
     }
 
     private void toggleTest(){
