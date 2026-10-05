@@ -10,7 +10,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.graphics.Color;
@@ -220,43 +220,32 @@ public class RingService extends Service {
         if(Build.VERSION.SDK_INT<23 || !android.provider.Settings.canDrawOverlays(c)) return;
         try{
             hideIncomingOverlay();
-            LinearLayout box=new LinearLayout(c);
-            box.setOrientation(LinearLayout.HORIZONTAL);
-            box.setGravity(Gravity.CENTER_VERTICAL);
-            box.setPadding(18,10,12,10);
+
+            ImageButton mute=new ImageButton(c);
+            mute.setImageResource(android.R.drawable.ic_lock_silent_mode);
+            mute.setColorFilter(Color.WHITE);
+            mute.setContentDescription("השתק צלצול");
+            mute.setPadding(11,11,11,11);
+            mute.setScaleType(ImageButton.ScaleType.CENTER_INSIDE);
+
             GradientDrawable bg=new GradientDrawable();
             bg.setColor(Color.rgb(35,35,35));
-            bg.setCornerRadius(24);
-            box.setBackground(bg);
-
-            TextView text=new TextView(c);
-            text.setText("Myring  •  שיחה נכנסת");
-            text.setTextColor(Color.WHITE);
-            text.setTextSize(15);
-            text.setGravity(Gravity.CENTER_VERTICAL);
-            LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f);
-            box.addView(text,tp);
-
-            Button mute=new Button(c);
-            mute.setText("השתק");
-            mute.setTextSize(13);
-            mute.setAllCaps(false);
+            bg.setShape(GradientDrawable.OVAL);
+            mute.setBackground(bg);
             mute.setOnClickListener(v->muteIncoming());
-            box.addView(mute,new LinearLayout.LayoutParams(110,56));
 
             int type=Build.VERSION.SDK_INT>=26?WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:WindowManager.LayoutParams.TYPE_PHONE;
             WindowManager.LayoutParams lp=new WindowManager.LayoutParams(
-                    WindowManager.LayoutParams.MATCH_PARENT,
-                    WindowManager.LayoutParams.WRAP_CONTENT,
-                    type,
+                    54,54,type,
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                     android.graphics.PixelFormat.TRANSLUCENT);
             lp.gravity=Gravity.TOP|Gravity.CENTER_HORIZONTAL;
-            lp.y=12;
+            lp.y=10;
+
             overlayManager=(WindowManager)c.getSystemService(Context.WINDOW_SERVICE);
             if(overlayManager!=null){
-                overlayView=box;
-                overlayManager.addView(box,lp);
+                overlayView=mute;
+                overlayManager.addView(mute,lp);
             }
         }catch(Exception ignored){}
     }
