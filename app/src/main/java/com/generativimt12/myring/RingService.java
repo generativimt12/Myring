@@ -10,7 +10,7 @@ import java.io.File;
 public class RingService extends Service {
     public static final String START="START",STOP="STOP",TEST="TEST",TEST_STOP="TEST_STOP",MUTE="MUTE";
     private static final int INCOMING_NOTIFICATION_ID=8;
-    private static final String INCOMING_CHANNEL="incoming_call_v2";
+    private static final String INCOMING_CHANNEL="incoming_call_v3";
     private static MediaPlayer directPlayer;
     private static volatile boolean incomingRinging=false;
     private MediaPlayer player;
@@ -185,11 +185,13 @@ public class RingService extends Service {
         Notification.Builder b=Build.VERSION.SDK_INT>=26?new Notification.Builder(c,INCOMING_CHANNEL):new Notification.Builder(c);
         b.setSmallIcon(android.R.drawable.ic_lock_silent_mode_off)
                 .setContentTitle("Myring — שיחה נכנסת")
-                .setContentText("הצלצול פעיל · לחץ על «השתק» כדי להשתיק")
+                .setContentText("הצלצול פעיל · השתקה זמינה כאן")
                 .setCategory(Notification.CATEGORY_CALL)
+                .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setOngoing(true)
                 .setAutoCancel(false)
                 .setOnlyAlertOnce(true)
+                .setShowWhen(false)
                 .setPriority(Notification.PRIORITY_MAX)
                 .addAction(new Notification.Action.Builder(null,"השתק",pi).build());
         n.notify(INCOMING_NOTIFICATION_ID,b.build());
