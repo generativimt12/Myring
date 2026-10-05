@@ -9,6 +9,8 @@ import java.io.File;
 
 public class RingService extends Service {
     public static final String START="START",STOP="STOP",TEST="TEST",TEST_STOP="TEST_STOP",MUTE="MUTE";
+    private static final int INCOMING_NOTIFICATION_ID=8;
+    private static final String INCOMING_CHANNEL="incoming_call_v2";
     private static MediaPlayer directPlayer;
     private static volatile boolean incomingRinging=false;
     private MediaPlayer player;
@@ -21,6 +23,7 @@ public class RingService extends Service {
         MediaPlayer p=createPlayer(c, preferredPath);
         if(p==null)return;
         directPlayer=p;
+        showIncomingNotification(c);
         try{ p.start(); startFadeIn(p,c); }catch(Exception e){ try{p.release();}catch(Exception ignored){} directPlayer=null; }
     }
 
@@ -29,6 +32,7 @@ public class RingService extends Service {
         MediaPlayer p=directPlayer;
         directPlayer=null;
         if(p!=null) stopPlayer(p);
+        cancelIncomingNotification();
     }
 
     public static boolean isIncomingRinging(){ return incomingRinging; }
@@ -38,6 +42,7 @@ public class RingService extends Service {
         MediaPlayer p=directPlayer;
         directPlayer=null;
         if(p!=null)stopPlayer(p);
+        cancelIncomingNotification();
     }
 
     public static void startRinging(Context c){start(c,START);}
@@ -53,7 +58,7 @@ public class RingService extends Service {
         try{if(Build.VERSION.SDK_INT>=26)c.startForegroundService(i);else c.startService(i);}catch(Exception ignored){}
     }
 
-    @Override public void onCreate(){super.onCreate();createChannel();try{startForeground(7,notification());}catch(Exception ignored){}}
+    @Override public void onCreate(){super.onCreate();lastContext=getApplicationContext();createChannel();try{startForeground(7,notification());}catch(Exception ignored){}}
 
     @Override public int onStartCommand(Intent i,int f,int id){
         String a=i==null?null:i.getAction();
@@ -160,9 +165,47 @@ public class RingService extends Service {
             NotificationChannel ch=new NotificationChannel("ring","Myring",NotificationManager.IMPORTANCE_LOW);
             ch.setSound(null,null);
             NotificationManager n=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
-            if(n!=null)n.createNotificationChannel(ch);
+            if(n!=null){
+                n.createNotificationChannel(ch);
+                NotificationChannel incoming=new NotificationChannel(INCOMING_CHANNEL,"Myring — שיחה נכנסת",NotificationManager.IMPORTANCE_HIGH);
+                incoming.setDescription("באנר מהיר להשתקת צלצול Myring בזמן שיחה נכנסת");
+                incoming.setSound(null,null);
+                incoming.enableVibration(false);
+                n.createNotificationChannel(incoming);
+            }
         }
     }
+
+    private static void showIncomingNotification(Context c){
+        if(Build.VERSION.SDK_INT>=33 && c.checkSelfPermission("android.permission.POST_NOTIFICATIONS")!=android.content.pm.PackageManager.PERMISSION_GRANTED)return;
+        NotificationManager n=(NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE);
+        if(n==null)return;
+        Intent mute=new Intent(c,RingService.class).setAction(MUTE);
+        PendingIntent pi=PendingIntent.getService(c,19,mute,Build.VERSION.SDK_INT>=23?PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE:PendingIntent.FLAG_UPDATE_CURRENT);
+        Notification.Builder b=Build.VERSION.SDK_INT>=26?new Notification.Builder(c,INCOMING_CHANNEL):new Notification.Builder(c);
+        b.setSmallIcon(android.R.drawable.ic_lock_silent_mode_off)
+                .setContentTitle("Myring — שיחה נכנסת")
+                .setContentText("הצלצול פעיל · לחץ על «השתק» כדי להשתיק")
+                .setCategory(Notification.CATEGORY_CALL)
+                .setOngoing(true)
+                .setAutoCancel(false)
+                .setOnlyAlertOnce(true)
+                .setPriority(Notification.PRIORITY_MAX)
+                .addAction(new Notification.Action.Builder(null,"השתק",pi).build());
+        n.notify(INCOMING_NOTIFICATION_ID,b.build());
+    }
+
+    private static void cancelIncomingNotification(){
+        // NotificationManager is obtained from the service instance when possible.
+        // The direct player can be stopped from a receiver without a service instance,
+        // so use the application context saved by the running service when available.
+        if(lastContext!=null){
+            NotificationManager n=(NotificationManager)lastContext.getSystemService(Context.NOTIFICATION_SERVICE);
+            if(n!=null)n.cancel(INCOMING_NOTIFICATION_ID);
+        }
+    }
+
+    private static Context lastContext;
 
     private Notification notification(){
         Intent mute=new Intent(this,RingService.class).setAction(MUTE);
@@ -176,6 +219,6 @@ public class RingService extends Service {
                 .build();
     }
 
-    @Override public void onDestroy(){stopRingtone();super.onDestroy();}
+    @Override public void onDestroy(){stopRingtone();cancelIncomingNotification();lastContext=null;super.onDestroy();}
     @Override public IBinder onBind(Intent i){return null;}
 }
