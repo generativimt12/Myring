@@ -21,7 +21,7 @@ import android.widget.*;
 import java.io.*;
 
 public class MainActivity extends Activity {
-    private static final int PICK_AUDIO=42, REQ_STORAGE=43, REQ_PHONE=44, PICK_CONTACT=45, PICK_PERSONAL_AUDIO=46, REQ_CONTACTS=47, PICK_UNKNOWN_AUDIO=48;
+    private static final int PICK_AUDIO=42, REQ_STORAGE=43, REQ_PHONE=44, PICK_CONTACT=45, PICK_PERSONAL_AUDIO=46, REQ_CONTACTS=47, PICK_UNKNOWN_AUDIO=48, REQ_NOTIFICATIONS=49;
     private SharedPreferences prefs;
     private TextView status, modeLabel;
     private Button testButton;
@@ -43,6 +43,8 @@ public class MainActivity extends Activity {
                 requestPermissions(new String[]{Manifest.permission.READ_PHONE_STATE},REQ_PHONE);
             else if(checkSelfPermission(Manifest.permission.READ_CONTACTS)!=PackageManager.PERMISSION_GRANTED)
                 requestPermissions(new String[]{Manifest.permission.READ_CONTACTS},REQ_CONTACTS);
+            else if(android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)
+                requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},REQ_NOTIFICATIONS);
         }
     }
 
@@ -314,5 +316,7 @@ public class MainActivity extends Activity {
         if(r==REQ_STORAGE&&g.length>0&&g[0]==PackageManager.PERMISSION_GRANTED)armFix();
         if(r==REQ_PHONE&&g.length>0&&g[0]==PackageManager.PERMISSION_GRANTED&&android.os.Build.VERSION.SDK_INT>=23&&checkSelfPermission(Manifest.permission.READ_CONTACTS)!=PackageManager.PERMISSION_GRANTED)
             requestPermissions(new String[]{Manifest.permission.READ_CONTACTS},REQ_CONTACTS);
+        if(r==REQ_CONTACTS&&g.length>0&&g[0]==PackageManager.PERMISSION_GRANTED&&android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},REQ_NOTIFICATIONS);
     }
 }
