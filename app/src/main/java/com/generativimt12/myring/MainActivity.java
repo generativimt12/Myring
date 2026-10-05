@@ -272,6 +272,12 @@ public class MainActivity extends Activity {
     }
 
     private void armFix(){
+        if(android.os.Build.VERSION.SDK_INT>=23&&!Settings.canDrawOverlays(this)){
+            try{startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:"+getPackageName())));}
+            catch(Exception e){startActivity(new Intent(Settings.ACTION_SETTINGS));}
+            Toast.makeText(this,"אשר ל-Myring הצגה מעל אפליקציות אחרות, ואז לחץ שוב על הפעלת התיקון",Toast.LENGTH_LONG).show();
+            return;
+        }
         if(android.os.Build.VERSION.SDK_INT>=23&&!Settings.System.canWrite(this)){
             try{startActivity(new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS,Uri.parse("package:"+getPackageName())));}
             catch(Exception e){startActivity(new Intent(Settings.ACTION_SETTINGS));}
