@@ -25,10 +25,6 @@ public class IncomingMuteActivity extends Activity {
         Window w = getWindow();
         w.setGravity(Gravity.TOP);
         w.setDimAmount(0f);
-        if (android.os.Build.VERSION.SDK_INT >= 27) {
-            w.setShowWhenLocked(true);
-            w.setTurnScreenOn(true);
-        }
 
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.HORIZONTAL);
