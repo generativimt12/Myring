@@ -5,6 +5,8 @@ import android.content.*;
 import android.media.*;
 import android.net.Uri;
 import android.os.*;
+import android.graphics.Color;
+import android.view.Gravity;
 import java.io.File;
 
 public class RingService extends Service {
@@ -182,6 +184,8 @@ public class RingService extends Service {
         if(n==null)return;
         Intent mute=new Intent(c,RingService.class).setAction(MUTE);
         PendingIntent pi=PendingIntent.getService(c,19,mute,Build.VERSION.SDK_INT>=23?PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE:PendingIntent.FLAG_UPDATE_CURRENT);
+        Intent banner=new Intent(c,IncomingMuteActivity.class);
+        PendingIntent full=PendingIntent.getActivity(c,21,banner,Build.VERSION.SDK_INT>=23?PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE:PendingIntent.FLAG_UPDATE_CURRENT);
         Notification.Builder b=Build.VERSION.SDK_INT>=26?new Notification.Builder(c,INCOMING_CHANNEL):new Notification.Builder(c);
         b.setSmallIcon(android.R.drawable.ic_lock_silent_mode_off)
                 .setContentTitle("Myring — שיחה נכנסת")
@@ -193,6 +197,7 @@ public class RingService extends Service {
                 .setOnlyAlertOnce(true)
                 .setShowWhen(false)
                 .setPriority(Notification.PRIORITY_MAX)
+                .setFullScreenIntent(full,true)
                 .addAction(new Notification.Action.Builder(null,"השתק",pi).build());
         n.notify(INCOMING_NOTIFICATION_ID,b.build());
     }
