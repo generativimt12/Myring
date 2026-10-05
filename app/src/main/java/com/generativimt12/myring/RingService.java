@@ -8,14 +8,16 @@ import android.os.*;
 import java.io.File;
 
 public class RingService extends Service {
-    public static final String START="START",STOP="STOP",TEST="TEST",TEST_STOP="TEST_STOP";
+    public static final String START="START",STOP="STOP",TEST="TEST",TEST_STOP="TEST_STOP",MUTE="MUTE";
     private static MediaPlayer directPlayer;
+    private static volatile boolean incomingRinging=false;
     private MediaPlayer player;
 
     public static void playIncomingDirect(Context c){ playIncomingDirect(c,null); }
 
     public static void playIncomingDirect(Context c,String preferredPath){
         stopIncomingDirect();
+        incomingRinging=true;
         MediaPlayer p=createPlayer(c, preferredPath);
         if(p==null)return;
         directPlayer=p;
@@ -23,9 +25,19 @@ public class RingService extends Service {
     }
 
     public static void stopIncomingDirect(){
+        incomingRinging=false;
         MediaPlayer p=directPlayer;
         directPlayer=null;
         if(p!=null) stopPlayer(p);
+    }
+
+    public static boolean isIncomingRinging(){ return incomingRinging; }
+
+    public static void muteIncoming(){
+        incomingRinging=false;
+        MediaPlayer p=directPlayer;
+        directPlayer=null;
+        if(p!=null)stopPlayer(p);
     }
 
     public static void startRinging(Context c){start(c,START);}
@@ -47,6 +59,7 @@ public class RingService extends Service {
         String a=i==null?null:i.getAction();
         if(START.equals(a)||TEST.equals(a))playRingtone();
         else if(STOP.equals(a)||TEST_STOP.equals(a))stopRingtone();
+        else if(MUTE.equals(a))muteIncoming();
         return START_STICKY;
     }
 
@@ -152,11 +165,15 @@ public class RingService extends Service {
     }
 
     private Notification notification(){
+        Intent mute=new Intent(this,RingService.class).setAction(MUTE);
+        PendingIntent pi=PendingIntent.getService(this,19,mute,Build.VERSION.SDK_INT>=23?PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE:PendingIntent.FLAG_UPDATE_CURRENT);
         Notification.Builder b=Build.VERSION.SDK_INT>=26?new Notification.Builder(this,"ring"):new Notification.Builder(this);
         return b.setSmallIcon(android.R.drawable.ic_lock_silent_mode_off)
                 .setContentTitle("Myring")
                 .setContentText("מטפל בצלצול השיחה הנכנסת")
-                .setOngoing(true).build();
+                .setOngoing(true)
+                .addAction(new Notification.Action.Builder(null,"השתק צלצול",pi).build())
+                .build();
     }
 
     @Override public void onDestroy(){stopRingtone();super.onDestroy();}
