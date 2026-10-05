@@ -6,6 +6,14 @@ import android.media.*;
 import android.net.Uri;
 import android.os.*;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
+import android.view.Gravity;
+import android.view.View;
+import android.view.WindowManager;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.graphics.Color;
 import android.view.Gravity;
 import java.io.File;
 
@@ -26,6 +34,7 @@ public class RingService extends Service {
         if(p==null)return;
         directPlayer=p;
         showIncomingNotification(c);
+        showIncomingOverlay(c);
         try{ p.start(); startFadeIn(p,c); }catch(Exception e){ try{p.release();}catch(Exception ignored){} directPlayer=null; }
     }
 
@@ -35,6 +44,7 @@ public class RingService extends Service {
         directPlayer=null;
         if(p!=null) stopPlayer(p);
         cancelIncomingNotification();
+        hideIncomingOverlay();
     }
 
     public static boolean isIncomingRinging(){ return incomingRinging; }
@@ -45,6 +55,7 @@ public class RingService extends Service {
         directPlayer=null;
         if(p!=null)stopPlayer(p);
         cancelIncomingNotification();
+        hideIncomingOverlay();
     }
 
     public static void startRinging(Context c){start(c,START);}
@@ -202,6 +213,62 @@ public class RingService extends Service {
         n.notify(INCOMING_NOTIFICATION_ID,b.build());
     }
 
+    private static WindowManager overlayManager;
+    private static View overlayView;
+
+    private static void showIncomingOverlay(Context c){
+        if(Build.VERSION.SDK_INT<23 || !android.provider.Settings.canDrawOverlays(c)) return;
+        try{
+            hideIncomingOverlay();
+            LinearLayout box=new LinearLayout(c);
+            box.setOrientation(LinearLayout.HORIZONTAL);
+            box.setGravity(Gravity.CENTER_VERTICAL);
+            box.setPadding(18,10,12,10);
+            GradientDrawable bg=new GradientDrawable();
+            bg.setColor(Color.rgb(35,35,35));
+            bg.setCornerRadius(24);
+            box.setBackground(bg);
+
+            TextView text=new TextView(c);
+            text.setText("Myring  •  שיחה נכנסת");
+            text.setTextColor(Color.WHITE);
+            text.setTextSize(15);
+            text.setGravity(Gravity.CENTER_VERTICAL);
+            LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f);
+            box.addView(text,tp);
+
+            Button mute=new Button(c);
+            mute.setText("השתק");
+            mute.setTextSize(13);
+            mute.setAllCaps(false);
+            mute.setOnClickListener(v->muteIncoming());
+            box.addView(mute,new LinearLayout.LayoutParams(110,56));
+
+            int type=Build.VERSION.SDK_INT>=26?WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:WindowManager.LayoutParams.TYPE_PHONE;
+            WindowManager.LayoutParams lp=new WindowManager.LayoutParams(
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    type,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                    android.graphics.PixelFormat.TRANSLUCENT);
+            lp.gravity=Gravity.TOP|Gravity.CENTER_HORIZONTAL;
+            lp.y=12;
+            overlayManager=(WindowManager)c.getSystemService(Context.WINDOW_SERVICE);
+            if(overlayManager!=null){
+                overlayView=box;
+                overlayManager.addView(box,lp);
+            }
+        }catch(Exception ignored){}
+    }
+
+    private static void hideIncomingOverlay(){
+        if(overlayManager!=null&&overlayView!=null){
+            try{overlayManager.removeViewImmediate(overlayView);}catch(Exception ignored){}
+        }
+        overlayView=null;
+        overlayManager=null;
+    }
+
     private static void cancelIncomingNotification(){
         // NotificationManager is obtained from the service instance when possible.
         // The direct player can be stopped from a receiver without a service instance,
@@ -226,6 +293,6 @@ public class RingService extends Service {
                 .build();
     }
 
-    @Override public void onDestroy(){stopRingtone();cancelIncomingNotification();lastContext=null;super.onDestroy();}
+    @Override public void onDestroy(){stopRingtone();cancelIncomingNotification();hideIncomingOverlay();lastContext=null;super.onDestroy();}
     @Override public IBinder onBind(Intent i){return null;}
 }
