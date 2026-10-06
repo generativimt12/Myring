@@ -1,3 +1,30 @@
+# 🔔 Myring — Reliable Incoming-Call Ringtone Engine
+
+> A focused Android utility for devices where the normal incoming-call ringtone is unreliable.
+
+[![Android](https://img.shields.io/badge/Platform-Android-3DDC84?logo=android&logoColor=white)](https://developer.android.com/) [![Java](https://img.shields.io/badge/Language-Java-ED8B00?logo=openjdk&logoColor=white)](https://www.java.com/) [![Personal Project](https://img.shields.io/badge/Project-Personal-6E56CF)](https://github.com/generativimt12)
+
+**Myring is intentionally not a dialer.** It is a small, dedicated ringtone layer that detects incoming calls, selects the appropriate ringtone, and stops playback when the call state changes.
+
+---
+
+## ✨ At a glance
+
+| | |
+|---|---|
+| 🎯 **Purpose** | Reliable incoming-call ringtone playback |
+| 📱 **Platform** | Android |
+| 👤 **Personal tones** | Per-contact ringtone support |
+| ♿ **Accessibility** | Not required |
+| 🧩 **Role** | Companion to the existing phone/dialer |
+| 🔋 **Background** | Foreground-service based |
+
+## 🧭 Project focus
+
+**Detect the call → choose the right sound → play it → stop it when the call ends.**
+
+---
+
 # 🔔 Myring
 
 ### A lightweight Android ringtone engine for reliable incoming-call alerts
